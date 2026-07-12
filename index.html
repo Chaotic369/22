@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>
+  // Instantly apply the saved theme before the page renders to prevent flashbangs
+  (function() {
+    // Theme will be synced from cloud on load
+  })();
+</script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Sovereign System - Files & Notes</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+<style>
+:root {
+  /* Claude Dark Theme */
+  --bg-base: #000000;
+  --bg-surface: #1c1c1b;
+  --bg-solid-surface: #1c1c1b;
+  --bg-box: #000000;
+  --text-main: #e5e0da;
+  --text-muted: #8b8984;
+  --accent: #d8cebc;
+  --blue: #5c9dff; --green: #39d353; --red: #f85149; --amber: #e3b341; --teal: #2dd4bf;
+  
+  /* Dark Mode Note Phases (Balanced Brightness) */
+  --note-base: rgba(255, 255, 255, 0.08);
+  --note-amber: rgba(227, 179, 65, 0.22);
+  --note-blue: rgba(92, 157, 255, 0.22);
+  --note-green: rgba(57, 211, 83, 0.22);
+  --note-red: rgba(248, 81, 73, 0.22);
+  --note-purple: rgba(188, 140, 255, 0.22);
+}
+html.light-theme {
+  /* Claude Light Theme */
+  --bg-base: #ffffff;
+  --bg-surface: #ffffff;
+  --bg-solid-surface: #ffffff;
+  --bg-box: #ffffff;
+  --text-main: #191813;
+  --text-muted: #5c5a55;
+  --accent: #e5e0da;
+
+  /* Light Mode Note Phases (Brighter pastel for perfect text contrast) */
+  --note-base: rgba(0, 0, 0, 0.04);
+  --note-amber: rgba(227, 179, 65, 0.2);
+  --note-blue: rgba(92, 157, 255, 0.2);
+  --note-green: rgba(57, 211, 83, 0.2);
+  --note-red: rgba(248, 81, 73, 0.2);
+  --note-purple: rgba(188, 140, 255, 0.2);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; outline: none !important; border: none; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-base); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: var(--text-main); transition: background 0.3s, color 0.3s; }
+
+/* Massive slider size for flawless tablet touch */
+::-webkit-scrollbar { width: 0px; height: 0px; display: none; }
+
+/* Huge, unmistakable expanding button (textarea resize handle) */
+::-webkit-resizer { 
+  background: var(--amber); 
+  border-top-left-radius: 8px; 
+  border-bottom-right-radius: 16px;
+  box-shadow: inset 2px 2px 4px rgba(0,0,0,0.2); 
+}
+
+/* WORKSPACE LAYOUT */
+#mainWorkspace {
+  position: fixed; top: 0; bottom: 0; left: 0; right: 0;
+  background: var(--bg-base); color: var(--text-main);
+  padding: 70px 24px 90px 24px; overflow-y: auto; z-index: 1;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 32px; align-content: start;
+  transition: background 0.3s;
+}
+
+.workspace-panel { display: flex; flex-direction: column; gap: 16px; }
+.panel-header { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; color: var(--amber); letter-spacing: 0.08em; display: flex; justify-content: space-between; align-items: center; padding-bottom: 8px; }
+
+/* TOP RIGHT MINI BUTTONS */
+.top-bar-actions {
+  position: fixed; top: 16px; right: 20px; z-index: 10000; display: flex; gap: 4px; align-items: center;
+  background: rgba(22, 22, 22, 0.45); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-radius: 24px; padding: 4px 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+html.light-theme .top-bar-actions {
+  background: rgba(255, 255, 255, 0.85);
+}
+.top-bar-actions .action-mini-btn {
+  background: transparent !important; box-shadow: none !important; width: 30px; height: 30px;
+}
+#storage-toolbar .action-mini-btn {
+  background: transparent !important; box-shadow: none !important;
+}
+html.has-wallpaper .top-bar-actions .action-mini-btn,
+html.has-wallpaper #storage-toolbar .action-mini-btn {
+  box-shadow: none !important; background: transparent !important;
+}
+.action-mini-btn {
+  width: 36px; height: 36px; border-radius: 50%; background: var(--bg-surface); color: var(--text-main);
+  display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1); transition: transform 0.2s, color 0.2s; border: none !important;
+}
+.action-mini-btn:active { transform: scale(0.9); }
+
+/* FLOATING SQUIRCLE UPLOAD BUTTON (BOTTOM RIGHT) */
+#uploadSquircleBtn {
+  position: fixed; bottom: 44px; right: 20px; z-index: 10000; width: 56px; height: 56px; border-radius: 50%;
+  background: var(--bg-surface); color: var(--text-main); border: none !important;
+  display: flex; align-items: center; justify-content: center; font-size: 22px;
+  cursor: pointer; transition: transform 0.2s; box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+}
+#uploadSquircleBtn:hover { transform: translateY(-3px); }
+#uploadSquircleBtn:active { transform: scale(0.92); }
+
+button.btn {
+  background: var(--bg-base); border: none !important; color: var(--text-main); border-radius: 24px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; transition: filter 0.2s, transform 0.1s;
+}
+button.btn:hover { filter: brightness(0.9); }
+html:not(.light-theme) button.btn:hover { filter: brightness(1.2); }
+button.btn:active { transform: scale(0.96); }
+
+/* FILE LIST ENGINE */
+#filesGridContainer {
+  display: flex; flex-direction: column; gap: 12px; align-content: start;
+}
+
+.file-card {
+  background: var(--bg-surface); border: none !important;
+  border-radius: 24px; padding: 12px 16px; display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 16px;
+  transition: transform 0.15s ease;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  contain: layout style paint;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: pan-y;
+}
+.file-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.1); }
+
+/* MASONRY GRID SYSTEM */
+#notes-container {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  grid-auto-rows: 4px;
+  grid-auto-flow: dense;
+  gap: 16px;
+  width: 100%;
+  align-items: start;
+}
+
+.note-card {
+  width: 100%; min-width: 0; border: none !important;
+  display: flex; flex-direction: column; gap: 8px; padding: 16px; border-radius: 24px;
+  cursor: grab; transition: transform 0.2s, box-shadow 0.2s;
+  color: var(--text-main); font-size: 13px; line-height: 1.5; position: relative;
+  contain: layout style paint;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: pan-y;
+}
+.note-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.1); }
+.note-card:active { cursor: grabbing; }
+
+/* PC Grid Logic (6 Columns) */
+.note-card.span-tiny { grid-column: span 2; }
+.note-card.span-small { grid-column: span 2; }
+.note-card.span-half { grid-column: span 3; }
+
+/* Tablet & Mobile Layout Engine (Strict 4-Column base) */
+@media (max-width: 1200px) { 
+  #notes-container { grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .note-card.span-tiny { grid-column: span 1; }  
+  .note-card.span-small { grid-column: span 2; } 
+  .note-card.span-half { grid-column: span 2; }  
+}
+
+/* Fallback for extremely small phones */
+@media (max-width: 380px) { 
+  #notes-container { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .note-card.span-tiny { grid-column: span 1; }  
+  .note-card.span-small { grid-column: span 2; } 
+  .note-card.span-half { grid-column: span 2; }  
+}
+
+.sortable-ghost { opacity: 0.4; transform: scale(0.98); }
+.sortable-drag { cursor: grabbing !important; }
+.note-card-title { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+
+/* Dynamic Note Gallery Engine */
+.note-gallery { display: grid; gap: 4px; border-radius: 16px; overflow: hidden; margin-bottom: 8px; }
+.note-gallery.count-1 { grid-template-columns: 1fr; }
+.note-gallery.count-2 { grid-template-columns: 1fr 1fr; }
+.note-gallery.count-3 { grid-template-columns: 1fr 1fr; }
+.note-gallery.count-many { grid-template-columns: 1fr 1fr; }
+.note-gallery-item { position: relative; overflow: hidden; cursor: pointer; background: var(--bg-base); }
+.note-gallery-item img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 0.2s; }
+.note-gallery-item:hover img { transform: scale(1.05); }
+
+.folder-card {
+  background: var(--bg-surface); padding: 6px 14px; border-radius: 20px; display: flex; align-items: center; gap: 8px;
+  cursor: pointer; transition: transform 0.15s; box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  font-weight: 600; font-size: 13px; border: none !important;
+  contain: layout style paint; max-width: 160px; flex-shrink: 0; white-space: nowrap;
+}
+.folder-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.1); }
+
+.category-card {
+  background: var(--bg-surface); padding: 16px 8px; border-radius: 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: none !important;
+  width: 106px; text-align: center; flex-shrink: 0;
+}
+.category-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.1); }
+.category-icon-wrapper {
+  width: 52px; height: 52px; border-radius: 20px; background: var(--bg-base); display: flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 2px;
+}
+
+.quick-input-bar { position: fixed; bottom: 44px; right: 88px; z-index: 10000; width: calc(100vw - 110px); max-width: 280px; height: 56px; display: flex; align-items: center; gap: 12px; padding: 0 20px; background: rgba(22, 22, 22, 0.45); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 28px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); border: none !important; outline: none !important; transition: transform 0.2s, box-shadow 0.2s; }
+.quick-input-bar:focus-within { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,0.2); }
+#quick-note-input { color: #ffffff !important; }
+#quick-note-input::placeholder { color: rgba(255, 255, 255, 0.7) !important; opacity: 1; }
+html.light-theme .quick-input-bar { background: rgba(255, 255, 255, 0.85); box-shadow: 0 8px 24px rgba(0,0,0,0.1); }
+html.light-theme #quick-note-input { color: #191813 !important; }
+html.light-theme #quick-note-input::placeholder { color: rgba(25, 24, 19, 0.6) !important; opacity: 1; }
+
+#storage-toolbar { background: rgba(22, 22, 22, 0.45); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 24px; padding: 4px 8px; }
+html.light-theme #storage-toolbar { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+
+/* UTILS & MODALS */
+.file-row-input {
+  width: 100%; background: var(--bg-base); border: none !important; color: var(--text-main);
+  padding: 10px 16px; border-radius: 24px; outline: none; font-family: 'JetBrains Mono', monospace; font-size: 13px;
+}
+.file-row-input:focus { filter: brightness(0.95); }
+html:not(.light-theme) .file-row-input:focus { filter: brightness(1.2); }
+
+#toast {
+  position: fixed; top: 80px; left: 50%; transform: translateX(-50%); padding: 12px 24px; border-radius: 32px; font-size: 13px; font-weight: 500;
+  background: var(--bg-surface); color: var(--text-main); border: none !important;
+  z-index: 50000; display: none; max-width: 90vw; text-align: center; white-space: pre-line;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+#toast.show { display: block; animation: slideUp 150ms ease-out forwards; }
+#toast.warn { color: var(--amber); } #toast.err { color: var(--red); } #toast.info { color: var(--blue); }
+
+@keyframes slideUp{from{opacity:0;transform:translate(-50%, 10px) translateZ(0)}to{opacity:1;transform:translate(-50%, 0) translateZ(0)}}
+
+.modal-base {
+  position: fixed; z-index: 40000; background: rgba(22, 22, 22, 0.65); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 32px;
+  padding: 24px; color: var(--text-main); font-size: 13px; border: none !important; outline: none !important;
+  top: 50%; left: 50%; transform: translate(-50%, -50%); width: 90vw; max-width: 400px; display: none; flex-direction: column; gap: 12px;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.4);
+}
+.modal-base.open { display: flex; }
+
+#statusBar {
+  position: fixed; bottom: 0; left: 0; right: 0; height: 24px; background: var(--bg-surface); 
+  display: flex; align-items: center; padding: 0 12px; gap: 12px; font-size: 11px; font-weight: 500; color: var(--text-muted); z-index: 9990;
+  border: none !important; transition: background 0.3s;
+}
+#statusBar .sb-item { white-space: nowrap; }
+#statusBar .sb-ok { color: var(--green); }
+#statusBar .sb-sep { color: var(--text-muted); opacity: 0.3; }
+
+#progressBar {
+  position: fixed; top: 0; left: 0; height: 3px; background: var(--blue); z-index: 50000;
+  width: 0%; display: none; box-shadow: none; border: none !important; transition: width 0.1s linear;
+}
+#progressBar.active { display: block; }
+
+.md-preview pre { background: rgba(0,0,0,0.2) !important; padding: 8px; border-radius: 8px; overflow-x: auto; font-family: 'JetBrains Mono', monospace; font-size: 11px; margin: 4px 0; border: none !important; }
+.md-preview strong { color: var(--amber); font-weight: 700; }
+.md-preview em { color: var(--teal); font-style: italic; }
+.md-preview code { font-family: 'JetBrains Mono', monospace; background: rgba(0,0,0,0.2); padding: 2px 4px; border-radius: 4px; font-size: 11px; }
+
+#multiSelectBar {
+  position: fixed; bottom: -300px; left: 50%; transform: translateX(-50%);
+  background: rgba(22, 22, 22, 0.65); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  padding: 12px 24px; border-radius: 32px; border: none !important; outline: none !important;
+  display: flex; gap: 16px; align-items: center; box-shadow: 0 16px 48px rgba(0,0,0,0.4);
+  z-index: 45000; transition: bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+#multiSelectBar.active { bottom: 120px; }
+
+.file-checkbox {
+  appearance: none; width: 18px; height: 18px; border: 2px solid var(--text-main);
+  border-radius: 50%; background: rgba(0, 0, 0, 0.35); cursor: pointer; transition: all 0.2s; position: relative; flex-shrink:0;
+}
+html.light-theme .file-checkbox {
+  background: #ffffff;
+}
+/* Invisible hit-area expander to prevent accidental file opens */
+.file-checkbox::before {
+  content: ''; position: absolute; top: -20px; bottom: -20px; left: -20px; right: -20px; border-radius: 50%;
+}
+.file-checkbox:checked { background: var(--blue); border-color: var(--blue); }
+.file-checkbox:checked::after {
+  content: ''; position: absolute; left: 5px; top: 2px; width: 4px; height: 8px;
+  border: solid #fff; border-width: 0 2px 2px 0; transform: rotate(45deg);
+}
+
+#storage-search-input:focus, #storage-search-input:valid {
+  width: 120px !important; opacity: 1 !important; padding: 0 4px !important; margin-left: 4px; cursor: text !important;
+}
+
+#global-drop-overlay {
+  position: fixed; inset: 0; background: rgba(24, 24, 23, 0.85);
+  will-change: opacity;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  z-index: 99999; display: none; align-items: center; justify-content: center;
+  color: var(--teal); font-size: 28px; font-weight: 700; flex-direction: column; gap: 20px;
+  border: none !important; margin: 16px; border-radius: 40px; pointer-events: none;
+}
+
+/* Glassmorphism Wallpaper UI */
+html.has-wallpaper {
+  --bg-base: rgba(0, 0, 0, 0.15);
+  --bg-surface: rgba(0, 0, 0, 0.30);
+}
+html.has-wallpaper #bgOverlay {
+  filter: brightness(0.45);
+}
+html.has-wallpaper.light-theme {
+  --bg-base: rgba(255, 255, 255, 0.5);
+  --bg-surface: #ffffff;
+}
+html.has-wallpaper.light-theme #bgOverlay {
+  display: block;
+  filter: brightness(1.8) contrast(0.6) grayscale(0.2);
+}
+html.has-wallpaper.light-theme body, 
+html.has-wallpaper.light-theme #mainWorkspace { 
+  background: transparent !important; 
+}
+html.has-wallpaper body, html.has-wallpaper #mainWorkspace { 
+  background: transparent !important; 
+}
+/* Scrollable Cards: Lighter blur + CSS Containment to stop off-screen rendering lag */
+/* Scrollable Cards: Lighter blur + CSS Containment to stop off-screen rendering lag */
+html.has-wallpaper .note-card,
+html.has-wallpaper .file-card,
+html.has-wallpaper .folder-card,
+html.has-wallpaper .category-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 80px;
+  border: none !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
+}
+html.is-scrolling.has-wallpaper .note-card,
+html.is-scrolling.has-wallpaper .file-card,
+html.is-scrolling.has-wallpaper .folder-card,
+html.is-scrolling.has-wallpaper .category-card {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Fixed UI: High quality blur, hardware accelerated */
+html.has-wallpaper .modal-base,
+html.has-wallpaper #multiSelectBar,
+html.has-wallpaper #statusBar,
+html.has-wallpaper .top-bar-actions,
+html.has-wallpaper
